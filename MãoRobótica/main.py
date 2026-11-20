@@ -23,9 +23,15 @@ def main():
         # Lista com os pontos das mãos detectadas:
         lista_pontos = detector.encontrarPontos(imagem)
         
+        
+        dedos = detector.contarPontos(lista_pontos, imagem=imagem, desenho=True)
+        total_dedos = sum(dedos.values())
+
+        print(f"Dedos levantados: {total_dedos} -> {dedos}")   
+        
                 
-        if lista_pontos:
-            print(lista_pontos)
+        #if lista_pontos:
+            #print(lista_pontos)
 
         #Mostrar a imagem na tela:
         cv2.imshow("window", imagem)
