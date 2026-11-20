@@ -81,31 +81,59 @@ class DetectorMaos:
                 
         return lista_ponto
     
-    def contarPontos(self, lista_ponto, imagem=None, desenho=False, cor=(255, 0, 255), raio=7):
-            dedos_levantados = []
 
-            if not lista_ponto:
-                return dedos_levantados
+    def contarPontos(
+        self,
+        lista_ponto,
+        imagem=None,
+        desenho=False,
+        cor=(255, 0, 255),
+        raio=7,
+        espelhada=True,
+        mao_direita=True,
+        margem=10,
+    ):
+        # Mapeamento fixo: ID do ponto da ponta -> estado (0 = inativo, 1 = ativo)
+        # 4: dedão | 8: indicador | 12: médio | 16: anelar | 20: mindinho
+        pontos_dedos = [4, 8, 12, 16, 20]
+        estado_dedos = {ponto_id: 0 for ponto_id in pontos_dedos}
 
-            dedos = [8, 12, 16, 20]  # Pontas: indicador, médio, anelar, mindinho
+        if not lista_ponto or len(lista_ponto) < 21:
+            return estado_dedos
 
-            # Destaca opcionalmente as pontas dos dedos na imagem
-            if desenho and imagem is not None:
-                for ponta_id in dedos:
-                    _, cx, cy = lista_ponto[ponta_id]
-                    cv2.circle(imagem, (cx, cy), raio, cor, cv2.FILLED)
+        # Destaca os pontos fixos de cada dedo na imagem, se solicitado
+        if desenho and imagem is not None:
+            for ponto_id in pontos_dedos:
+                _, cx, cy = lista_ponto[ponto_id]
+                cv2.circle(imagem, (cx, cy), raio, cor, cv2.FILLED)
 
-            # Compara altura (cy -> índice 2): ponta acima da articulação intermediária (id - 2)
-            for id_ponta in dedos:
-                cy_ponta = lista_ponto[id_ponta][2]
-                cy_articulacao = lista_ponto[id_ponta - 2][2]
+        # 1. Ponto 4 (dedão): comparação horizontal em X
+        cx_ponta_dedao = lista_ponto[4][1]
+        cx_art_dedao = lista_ponto[2][1]
+        cx_ref_indicador = lista_ponto[5][1]
 
-                if cy_ponta < cy_articulacao:
-                    dedos_levantados.append(1)
-                else:
-                    dedos_levantados.append(0)
+        efetivamente_direita = (not mao_direita) if espelhada else mao_direita
 
-            return dedos_levantados
+        if efetivamente_direita:
+            dedao_aberto = (cx_ponta_dedao > cx_art_dedao - margem) and (
+                cx_ponta_dedao > cx_ref_indicador - margem
+            )
+        else:
+            dedao_aberto = (cx_ponta_dedao < cx_art_dedao + margem) and (
+                cx_ponta_dedao < cx_ref_indicador + margem
+            )
 
-                
-            
+        estado_dedos[4] = 1 if dedao_aberto else 0
+
+        # 2. Pontos 8, 12, 16 e 20: comparação vertical em Y (menor Y = mais alto na tela)
+        dedos_verticais = [8, 12, 16, 20]
+        for id_ponta in dedos_verticais:
+            cy_ponta = lista_ponto[id_ponta][2]
+            cy_articulacao = lista_ponto[id_ponta - 2][2]
+
+            if cy_ponta < cy_articulacao:
+                estado_dedos[id_ponta] = 1
+            else:
+                estado_dedos[id_ponta] = 0
+
+        return estado_dedos
